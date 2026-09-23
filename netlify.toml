@@ -1,0 +1,22 @@
+[build]
+  command = "pnpm --filter @workspace/portal-psicologos run build"
+  publish = "artifacts/portal-psicologos/public"
+  functions = "artifacts/portal-psicologos/netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/professionals/*"
+  to = "/.netlify/functions/professionals/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/professionals"
+  to = "/.netlify/functions/professionals"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

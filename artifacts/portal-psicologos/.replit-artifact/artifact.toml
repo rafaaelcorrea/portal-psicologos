@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ClaraMente — Portal de Psicólogos"
+description = "Portal mobile-first que conecta pessoas a psicólogos por especialidade, com contato direto via WhatsApp e gestão segura de profissionais."
+version = "1.0.0"
+id = "artifacts/portal-psicologos"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22313
+
+[services.development]
+run = "pnpm --filter @workspace/portal-psicologos run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/portal-psicologos", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/portal-psicologos/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22313"
+BASE_PATH = "/"
