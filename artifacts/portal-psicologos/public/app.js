@@ -1,53 +1,8 @@
-/* ClaraMente
+/* Connect & Harmony
  * Frontend sem framework: estado, renderização e eventos ficam neste arquivo.
  */
 
-const SEED_PROFESSIONALS = [
-  {
-    id: 'ana-luiza',
-    name: 'Ana Luiza Martins',
-    crm: '06/184.921',
-    bio: 'Acompanho pessoas adultas em momentos de mudança, ansiedade e reconstrução da autoestima.',
-    specialties: ['Ansiedade', 'Autoconhecimento'],
-    whatsapp: '5511987654321',
-    location: 'São Paulo, SP',
-    modality: 'Online e presencial',
-    initials: 'AL',
-  },
-  {
-    id: 'caio-nogueira',
-    name: 'Caio Nogueira',
-    crm: '06/152.480',
-    bio: 'Um espaço sem pressa para compreender padrões, vínculos e escolhas com mais gentileza.',
-    specialties: ['Relacionamentos', 'Depressão'],
-    whatsapp: '5521982345678',
-    location: 'Rio de Janeiro, RJ',
-    modality: 'Online',
-    initials: 'CN',
-  },
-  {
-    id: 'marina-valente',
-    name: 'Marina Valente',
-    crm: '06/198.703',
-    bio: 'Trabalho com trauma e processos de luto, respeitando o ritmo e a história de cada pessoa.',
-    specialties: ['Trauma', 'Ansiedade'],
-    whatsapp: '5531987651020',
-    location: 'Belo Horizonte, MG',
-    modality: 'Online e presencial',
-    initials: 'MV',
-  },
-  {
-    id: 'rafael-azevedo',
-    name: 'Rafael Azevedo',
-    crm: '06/174.336',
-    bio: 'Psicoterapia para quem deseja olhar para o uso de substâncias e retomar planos possíveis.',
-    specialties: ['Vícios', 'Autoconhecimento'],
-    whatsapp: '5548988112233',
-    location: 'Florianópolis, SC',
-    modality: 'Online',
-    initials: 'RA',
-  },
-];
+import { SEED_FAQ, SEED_PROFESSIONALS } from './seed-data.js';
 
 const SPECIALTIES = [
   'Todas',
@@ -60,9 +15,25 @@ const SPECIALTIES = [
 ];
 
 const WHATSAPP_MESSAGE =
-  'Olá, encontrei seu perfil na ClaraMente e gostaria de saber mais sobre o atendimento.';
+  'Olá, encontrei seu perfil na Connect & Harmony e gostaria de saber mais sobre o atendimento.';
+
+// Seção de dúvidas frequentes: textos e comportamento ficam aqui.
+// As perguntas e respostas são editadas pelo ADM em /admin.
+const FAQ_CONFIG = {
+  enabled: true, // false remove a seção, o link do menu e o painel do ADM
+  anchor: 'duvidas',
+  navLabel: 'Dúvidas',
+  label: 'Dúvidas frequentes',
+  title: 'Perguntas que surgem antes do primeiro passo.',
+  intro: 'Reunimos as dúvidas mais comuns de quem está começando. Se a sua não estiver aqui, fale com a gente.',
+  openFirst: true, // primeira pergunta já aparece aberta
+  hideWhenEmpty: true, // esconde a seção se o ADM remover todas as perguntas
+};
+
+const DEFAULT_FAQ_FORM = { id: null, question: '', answer: '' };
 
 const DEFAULT_FORM = {
+  id: null,
   name: '',
   crm: '',
   bio: '',
@@ -81,16 +52,34 @@ const state = {
   search: '',
   specialty: 'Todas',
   menuOpen: false,
-  identityConfigured: false,
+  authAvailable: false,
+  sessionChecked: false,
   user: null,
+  loginError: '',
   adminProfessionals: [],
   adminLoading: false,
   adminLoaded: false,
-  adminDenied: false,
   formOpen: false,
   form: { ...DEFAULT_FORM },
   notice: '',
   adminError: '',
+  faq: [],
+  faqLoading: false,
+  faqLoaded: false,
+  adminFaqLoading: false,
+  adminFaqLoaded: false,
+  faqFormOpen: false,
+  faqForm: { ...DEFAULT_FAQ_FORM },
+  faqSaving: false,
+  faqNotice: '',
+  faqError: '',
+};
+
+const INTERPRISE_INFO = {
+  name: 'Connect & Harmony',
+  cnpj: null,
+  adress: null,
+  email: 'oi@connectharmony.com.br'
 };
 
 const app = document.querySelector('#app');
@@ -98,7 +87,10 @@ const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.h
 
 const ICONS = {
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  arrowDown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  arrowUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   circleHelp: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.9.7-1.7 1.1-1.7 2.7M12 17h.01"/>',
   heart: '<path d="M20.8 8.6c0 5.4-8.8 10.2-8.8 10.2S3.2 14 3.2 8.6A4.4 4.4 0 0 1 12 6.3a4.4 4.4 0 0 1 8.8 2.3Z"/>',
@@ -133,7 +125,7 @@ function escapeHtml(value) {
 function logo(dark = false) {
   return `<a class="logo ${dark ? 'logo--dark' : ''} focus-ring" href="/" data-action="go-home">
     <span class="logo-mark" aria-hidden="true"></span>
-    <span class="logo-name">ClaraMente</span>
+    <span class="logo-name">${INTERPRISE_INFO.name}</span>
   </a>`;
 }
 
@@ -147,6 +139,7 @@ function publicHeader() {
   const links = [
     ['#sobre', 'Sobre', 'link-sobre'],
     ['#profissionais', 'Profissionais', 'link-profissionais'],
+    ...(FAQ_CONFIG.enabled ? [[`#${FAQ_CONFIG.anchor}`, FAQ_CONFIG.navLabel, 'link-duvidas']] : []),
     ['#contato', 'Contato', 'link-contato'],
   ];
 
@@ -179,11 +172,11 @@ function hero() {
         <p class="hero__intro animate-rise">Um diretório feito para aproximar você de psicólogos que trabalham com escuta, ética e presença. No seu tempo.</p>
         <div class="hero__actions animate-rise">
           <a class="button-primary focus-ring" href="#profissionais" data-testid="button-encontrar-profissional">Encontrar um profissional ${icon('arrowRight', 17)}</a>
-          <a class="button-quiet focus-ring" href="#sobre" data-testid="button-conhecer-claramemente">Conheça a ClaraMente ${icon('chevronDown', 16)}</a>
+          <a class="button-quiet focus-ring" href="#sobre" data-testid="button-conhecer-claramemente">Conheça a ${INTERPRISE_INFO.name} ${icon('chevronDown', 16)}</a>
         </div>
         <div class="hero__avatars">
           <span class="avatar-stack">
-            <span class="avatar-stack__item avatar-stack__item--teal">AL</span><span class="avatar-stack__item avatar-stack__item--coral">CN</span><span class="avatar-stack__item avatar-stack__item--blue">MV</span>
+            <span class="avatar-stack__item avatar-stack__item--teal">${SEED_PROFESSIONALS[0].initials}</span><span class="avatar-stack__item avatar-stack__item--coral">${SEED_PROFESSIONALS[1].initials}</span><span class="avatar-stack__item avatar-stack__item--blue">${SEED_PROFESSIONALS[2].initials}</span>
           </span>
           <span>Profissionais selecionados<br><strong>para escutar de verdade</strong></span>
         </div>
@@ -215,11 +208,11 @@ function about() {
   return `<section id="sobre" class="section about">
     <div class="container about__grid">
       <div>
-        <p class="section-label">Sobre a ClaraMente</p>
+        <p class="section-label">Sobre a ${INTERPRISE_INFO.name}</p>
         <h2 class="section-heading">Cuidado não é pressa. É presença.</h2>
       </div>
       <div class="about__body">
-        <p class="about__description">A ClaraMente nasceu para tornar o primeiro passo menos solitário. Reunimos profissionais com diferentes experiências para que você encontre uma escuta que faça sentido para a sua história.</p>
+        <p class="about__description">A ${INTERPRISE_INFO.name} nasceu para tornar o primeiro passo menos solitário. Reunimos profissionais com diferentes experiências para que você encontre uma escuta que faça sentido para a sua história.</p>
         <div class="steps">
           ${steps.map(([number, title, body]) => `<div class="step">
             <span class="step__number">${number}</span>
@@ -241,19 +234,74 @@ function contact() {
       </div>
       <div class="contact-card">
         <div class="contact-card__icon">${icon('circleHelp', 22)}</div>
-        <h3>Fale com a ClaraMente</h3>
+        <h3>Fale com a ${INTERPRISE_INFO.name}</h3>
         <p>Respondemos de segunda a sexta, das 9h às 18h.</p>
-        <a class="focus-ring" href="mailto:oi@claramente.com.br" data-testid="link-email-contato">oi@claramente.com.br ${icon('arrowRight', 16)}</a>
+        <a class="focus-ring" href="mailto:${INTERPRISE_INFO.email}" data-testid="link-email-contato">${INTERPRISE_INFO.email} ${icon('arrowRight', 16)}</a>
       </div>
     </div>
   </section>`;
+}
+
+function faqSection() {
+  if (!FAQ_CONFIG.enabled) return '';
+
+  return `<section id="${FAQ_CONFIG.anchor}" class="section faq">
+    <div class="container faq__grid">
+      <div>
+        <p class="section-label">${escapeHtml(FAQ_CONFIG.label)}</p>
+        <h2 class="section-heading">${escapeHtml(FAQ_CONFIG.title)}</h2>
+        <p class="faq__intro">${escapeHtml(FAQ_CONFIG.intro)}</p>
+      </div>
+      <div id="faq-content"></div>
+    </div>
+  </section>`;
+}
+
+function faqItem(item, index) {
+  return `<details class="faq-item" ${FAQ_CONFIG.openFirst && index === 0 ? 'open' : ''} data-testid="faq-${escapeHtml(item.id)}">
+    <summary class="focus-ring">${escapeHtml(item.question)} ${icon('chevronDown', 18)}</summary>
+    <p class="faq-item__answer">${escapeHtml(item.answer)}</p>
+  </details>`;
+}
+
+function renderFaq() {
+  const content = document.querySelector('#faq-content');
+  if (!content) return;
+
+  const section = content.closest('section');
+  section.hidden = FAQ_CONFIG.hideWhenEmpty && !state.faqLoading && !state.faq.length;
+
+  if (state.faqLoading) {
+    content.innerHTML = '<div class="loading-state" role="status">Carregando dúvidas...</div>';
+  } else if (state.faq.length) {
+    content.innerHTML = `<div class="faq-list">${state.faq.map(faqItem).join('')}</div>`;
+  } else {
+    content.innerHTML = '<div class="empty-state"><h3>Nenhuma dúvida publicada ainda</h3><p>Fale com a nossa equipe pelo contato abaixo.</p></div>';
+  }
+}
+
+async function loadPublicFaq() {
+  if (!FAQ_CONFIG.enabled || state.faqLoaded) return;
+
+  if (isLocal) {
+    state.faq = SEED_FAQ;
+  } else {
+    try {
+      state.faq = await apiRequest('/api/faq');
+    } catch {
+      state.faq = [];
+    }
+  }
+  state.faqLoading = false;
+  state.faqLoaded = true;
+  renderFaq();
 }
 
 function footer() {
   return `<footer class="site-footer">
     <div class="container site-footer__inner">
       ${logo(true)}
-      <p>© 2024 ClaraMente. Um diretório independente de psicologia.</p>
+      <p>© 2024 ${INTERPRISE_INFO.name}. Um diretório independente de psicologia.</p>
       <p class="footer-privacy">${icon('shield', 14)} Respeito, ética e privacidade</p>
     </div>
   </footer>`;
@@ -267,6 +315,7 @@ function homePage() {
       ${hero()}
       ${about()}
       ${directorySection()}
+      ${faqSection()}
       ${contact()}
     </main>
     ${footer()}
@@ -274,7 +323,9 @@ function homePage() {
 
   bindPublicEvents();
   renderDirectory();
+  renderFaq();
   loadPublicDirectory();
+  loadPublicFaq();
 }
 
 function directorySection() {
@@ -350,7 +401,7 @@ function renderDirectory() {
 
   status.innerHTML = [
     state.demoMode
-      ? '<p class="status status--demo" role="status">Prévia local: estes são dados de demonstração. No Netlify, o catálogo será carregado do armazenamento online.</p>'
+      ? '<p class="status status--demo" role="status">Prévia local: estes são dados de demonstração. No Cloudflare Pages, o catálogo será carregado do armazenamento online.</p>'
       : '',
     state.error ? `<p class="status status--error" role="alert">${escapeHtml(state.error)}</p>` : '',
   ].join('');
@@ -444,15 +495,21 @@ async function loadPublicDirectory() {
 
 async function apiRequest(path, options = {}) {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}) };
-  if (options.token) headers.Authorization = `Bearer ${options.token}`;
 
   const response = await fetch(path, {
     method: options.method || 'GET',
     headers,
+    credentials: 'same-origin',
+    redirect: 'manual',
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.message || 'Não foi possível concluir essa operação.');
+  if (!response.ok) {
+    const error = new Error(payload?.message || 'Não foi possível concluir essa operação.');
+    // Sessão do Access expirada: o pedido é redirecionado para a tela de login.
+    error.status = response.type === 'opaqueredirect' ? 401 : response.status;
+    throw error;
+  }
   return payload;
 }
 
@@ -473,11 +530,11 @@ function adminPage() {
   app.innerHTML = `<div class="admin-page grain">
     ${adminHeader()}
     <main class="container admin-main" id="admin-content"></main>
-    <footer class="container admin-footer">ClaraMente · Gestão protegida por autenticação</footer>
+    <footer class="container admin-footer">${INTERPRISE_INFO.name} · Gestão protegida por autenticação</footer>
   </div>`;
 
   bindAdminShellEvents();
-  initializeIdentity();
+  renderAdminContent();
 }
 
 function bindAdminShellEvents() {
@@ -489,66 +546,56 @@ function bindAdminShellEvents() {
   });
 }
 
-function initializeIdentity() {
-  const identity = window.netlifyIdentity;
-  state.identityConfigured = !isLocal && Boolean(identity);
+async function initializeSession() {
+  state.authAvailable = !isLocal;
 
-  if (!state.identityConfigured) {
-    renderAdminContent();
-    return;
+  if (state.authAvailable) {
+    try {
+      state.user = (await apiRequest('/api/admin/session')).user;
+    } catch (error) {
+      state.user = null;
+      state.loginError = error.status === 401 ? '' : error.message;
+    }
   }
 
-  identity.init();
-  state.user = identity.currentUser();
-  identity.on('login', (user) => {
-    state.user = user || identity.currentUser();
-    state.adminLoaded = false;
-    state.adminDenied = false;
-    renderAdminContent();
-  });
-  identity.on('logout', () => {
-    state.user = null;
-    state.adminProfessionals = [];
-    state.adminLoaded = false;
-    renderAdminContent();
-  });
-  renderAdminContent();
+  state.sessionChecked = true;
+  adminPage();
 }
 
 function renderAdminContent() {
   const content = document.querySelector('#admin-content');
   if (!content) return;
 
-  if (!state.identityConfigured || !state.user || state.adminDenied) {
+  if (!state.sessionChecked) {
+    content.innerHTML = '<div class="loading-state" role="status">Verificando acesso...</div>';
+    return;
+  }
+
+  if (!state.authAvailable || !state.user) {
     content.innerHTML = adminGate();
     document.querySelector('[data-action="login"]')?.addEventListener('click', login);
-    document.querySelector('[data-action="logout"]')?.addEventListener('click', logout);
     return;
   }
 
   content.innerHTML = adminDashboard();
   bindAdminDashboardEvents();
+  bindAdminFaqEvents();
   if (!state.adminLoaded && !state.adminLoading) loadAdminDirectory();
+  if (FAQ_CONFIG.enabled && !state.adminFaqLoaded && !state.adminFaqLoading) loadAdminFaq();
 }
 
 function adminGate() {
-  let message = 'Entre com a conta autorizada no Netlify para gerenciar os profissionais publicados.';
-  let action = button('Entrar como ADM', 'login', 'button-primary', 'login');
-
-  if (!state.identityConfigured) {
-    message = 'A autenticação do Netlify será ativada quando o portal for publicado e o Netlify Identity estiver configurado. Nenhuma senha é armazenada no site.';
-    action = '';
-  } else if (state.user) {
-    message = `A conta <strong>${escapeHtml(state.user.email || 'atual')}</strong> não possui permissão de administrador.`;
-    action = button('Sair', 'logout', 'button-quiet', 'logout');
-  }
+  const message = state.authAvailable
+    ? 'Entre com o e-mail do administrador. Você receberá um código de acesso por e-mail.'
+    : 'O login do administrador fica disponível quando o portal é publicado no Cloudflare Pages. Nenhuma senha é armazenada no site.';
 
   return `<section class="admin-gate">
     <div class="admin-gate__icon">${icon('shield', 26)}</div>
     <p class="admin-gate__label">Área restrita</p>
     <h1>Acesso do administrador</h1>
     <p>${message}</p>
-    ${action}
+    ${state.authAvailable && state.loginError ? `<div class="admin-error" role="alert">${escapeHtml(state.loginError)}</div>` : ''}
+    ${state.authAvailable ? button('Entrar como ADM', 'login', 'button-primary', 'login') : ''}
   </section>`;
 }
 
@@ -564,7 +611,175 @@ function adminDashboard() {
   ${state.notice ? `<div class="notice" role="status">${icon('check', 17)} ${escapeHtml(state.notice)}</div>` : ''}
   ${state.adminError ? `<div class="admin-error" role="alert">${escapeHtml(state.adminError)}</div>` : ''}
   ${state.formOpen ? professionalForm() : ''}
-  ${adminDirectoryList()}`;
+  ${adminDirectoryList()}
+  ${FAQ_CONFIG.enabled ? adminFaqPanel() : ''}`;
+}
+
+function adminFaqPanel() {
+  const editing = Boolean(state.faqForm.id);
+  const form = state.faqFormOpen ? `<form class="faq-panel__form animate-rise" id="faq-form" data-testid="form-faq">
+      <label class="form-label">Pergunta
+        <input class="field" type="text" required value="${escapeHtml(state.faqForm.question)}" data-faq-field="question" placeholder="Ex.: Como funciona o primeiro contato?" data-testid="input-faq-pergunta">
+      </label>
+      <label class="form-label">Resposta
+        <textarea class="field" rows="4" required data-faq-field="answer" placeholder="Escreva uma resposta curta e direta." data-testid="input-faq-resposta">${escapeHtml(state.faqForm.answer)}</textarea>
+      </label>
+      <div class="admin-form__actions">
+        ${button('Cancelar', 'faq-cancel', 'button-quiet')}
+        <button class="button-primary focus-ring" type="submit" ${state.faqSaving ? 'disabled' : ''} data-testid="button-salvar-faq">${icon('check', 17)} ${editing ? 'Salvar alterações' : 'Publicar pergunta'}</button>
+      </div>
+    </form>` : '';
+
+  const body = state.adminFaqLoading
+    ? '<div class="loading-state">Carregando dúvidas...</div>'
+    : state.faq.length
+      ? `<div class="admin-list">${state.faq.map(adminFaqRow).join('')}</div>`
+      : `<div class="empty-state">${icon('circleHelp', 25)}<h3>Nenhuma pergunta publicada</h3><p>Adicione a primeira pergunta para a seção aparecer no portal.</p></div>`;
+
+  return `<section class="directory-panel faq-panel" id="faq-panel">
+    <div class="directory-panel__header">
+      <div><h2>${escapeHtml(FAQ_CONFIG.label)}</h2><p>${state.adminFaqLoading ? 'Carregando...' : `${state.faq.length} perguntas publicadas`}</p></div>
+      ${button(state.faqFormOpen ? 'Fechar' : 'Nova pergunta', 'faq-toggle', 'button-quiet', state.faqFormOpen ? 'x' : 'plus')}
+    </div>
+    ${state.faqNotice ? `<div class="notice" role="status">${icon('check', 17)} ${escapeHtml(state.faqNotice)}</div>` : ''}
+    ${state.faqError ? `<div class="admin-error" role="alert">${escapeHtml(state.faqError)}</div>` : ''}
+    ${form}
+    ${body}
+  </section>`;
+}
+
+function adminFaqRow(item, index) {
+  const id = escapeHtml(item.id);
+  return `<div class="admin-row" data-testid="row-faq-${id}">
+    <div class="admin-row__text">
+      <p class="admin-row__name">${escapeHtml(item.question)}</p>
+      <p class="admin-row__answer">${escapeHtml(item.answer)}</p>
+    </div>
+    <div class="admin-row__actions">
+      <button class="row-button focus-ring" type="button" aria-label="Mover para cima" ${index === 0 ? 'disabled' : ''} data-faq-move="${id}" data-direction="-1">${icon('arrowUp', 15)}</button>
+      <button class="row-button focus-ring" type="button" aria-label="Mover para baixo" ${index === state.faq.length - 1 ? 'disabled' : ''} data-faq-move="${id}" data-direction="1">${icon('arrowDown', 15)}</button>
+      <button class="row-button focus-ring" type="button" data-faq-edit="${id}" data-testid="button-editar-faq-${id}">${icon('pencil', 15)} Editar</button>
+      <button class="delete-button focus-ring" type="button" data-faq-delete="${id}" data-testid="button-excluir-faq-${id}">${icon('trash', 15)} Excluir</button>
+    </div>
+  </div>`;
+}
+
+function bindAdminFaqEvents() {
+  document.querySelector('[data-action="faq-toggle"]')?.addEventListener('click', () => {
+    state.faqFormOpen = !state.faqFormOpen;
+    state.faqForm = { ...DEFAULT_FAQ_FORM };
+    state.faqNotice = '';
+    state.faqError = '';
+    renderAdminContent();
+  });
+  document.querySelector('[data-action="faq-cancel"]')?.addEventListener('click', () => {
+    state.faqFormOpen = false;
+    state.faqForm = { ...DEFAULT_FAQ_FORM };
+    renderAdminContent();
+  });
+  document.querySelector('#faq-form')?.addEventListener('submit', submitFaq);
+  document.querySelectorAll('[data-faq-field]').forEach((field) => {
+    field.addEventListener('input', () => {
+      state.faqForm[field.dataset.faqField] = field.value;
+    });
+  });
+  document.querySelectorAll('[data-faq-edit]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const item = state.faq.find((entry) => entry.id === button.dataset.faqEdit);
+      if (!item) return;
+      state.faqForm = { ...item };
+      state.faqFormOpen = true;
+      state.faqNotice = '';
+      state.faqError = '';
+      renderAdminContent();
+      document.querySelector('#faq-panel')?.scrollIntoView({ block: 'start' });
+      document.querySelector('[data-faq-field="question"]')?.focus();
+    });
+  });
+  document.querySelectorAll('[data-faq-move]').forEach((button) => {
+    button.addEventListener('click', () => moveFaq(button.dataset.faqMove, Number(button.dataset.direction)));
+  });
+  document.querySelectorAll('[data-faq-delete]').forEach((button) => {
+    button.addEventListener('click', () => removeFaq(button.dataset.faqDelete));
+  });
+}
+
+async function loadAdminFaq() {
+  state.adminFaqLoading = true;
+  try {
+    state.faq = await apiRequest('/api/faq');
+    state.faqError = '';
+  } catch (error) {
+    state.faqError = error.message || 'Não foi possível carregar as dúvidas.';
+  } finally {
+    state.adminFaqLoading = false;
+    state.adminFaqLoaded = true;
+    renderAdminContent();
+  }
+}
+
+async function submitFaq(event) {
+  event.preventDefault();
+  const { id } = state.faqForm;
+  const body = { question: state.faqForm.question.trim(), answer: state.faqForm.answer.trim() };
+  if (!body.question || !body.answer) {
+    state.faqError = 'Preencha a pergunta e a resposta.';
+    renderAdminContent();
+    return;
+  }
+
+  state.faqSaving = true;
+  state.faqError = '';
+  try {
+    const saved = await apiRequest(id ? `/api/admin/faq/${encodeURIComponent(id)}` : '/api/admin/faq', { method: id ? 'PUT' : 'POST', body });
+    state.faq = id ? state.faq.map((item) => (item.id === id ? saved : item)) : [...state.faq, saved];
+    state.faqForm = { ...DEFAULT_FAQ_FORM };
+    state.faqFormOpen = false;
+    state.faqNotice = id ? 'Pergunta atualizada.' : 'Pergunta publicada.';
+  } catch (error) {
+    if (!handleExpiredSession(error)) state.faqError = error.message || 'Não foi possível salvar a pergunta.';
+  } finally {
+    state.faqSaving = false;
+    renderAdminContent();
+  }
+}
+
+async function moveFaq(id, direction) {
+  const index = state.faq.findIndex((item) => item.id === id);
+  const position = index + direction;
+  if (index === -1 || position < 0 || position >= state.faq.length) return;
+
+  state.faqNotice = '';
+  state.faqError = '';
+  try {
+    await apiRequest(`/api/admin/faq/${encodeURIComponent(id)}`, { method: 'PUT', body: { position } });
+    const items = [...state.faq];
+    items.splice(position, 0, items.splice(index, 1)[0]);
+    state.faq = items;
+  } catch (error) {
+    if (!handleExpiredSession(error)) state.faqError = error.message || 'Não foi possível reordenar as perguntas.';
+  }
+  renderAdminContent();
+}
+
+async function removeFaq(id) {
+  const item = state.faq.find((entry) => entry.id === id);
+  if (!item || !window.confirm(`Remover a pergunta "${item.question}"? Ela deixará de aparecer para os visitantes.`)) return;
+
+  state.faqNotice = '';
+  state.faqError = '';
+  try {
+    await apiRequest(`/api/admin/faq/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    state.faq = state.faq.filter((entry) => entry.id !== id);
+    if (state.faqForm.id === id) {
+      state.faqForm = { ...DEFAULT_FAQ_FORM };
+      state.faqFormOpen = false;
+    }
+    state.faqNotice = 'Pergunta removida.';
+  } catch (error) {
+    if (!handleExpiredSession(error)) state.faqError = error.message || 'Não foi possível remover a pergunta.';
+  }
+  renderAdminContent();
 }
 
 function professionalForm() {
@@ -576,7 +791,7 @@ function professionalForm() {
   return `<form class="admin-form animate-rise" id="professional-form" data-testid="form-profissional">
     <div class="admin-form__heading">
       <div class="admin-form__icon">${icon('user', 20)}</div>
-      <div><h2>Adicionar ao diretório</h2><p>As informações aparecerão publicamente depois de salvar.</p></div>
+      <div><h2>${state.form.id ? 'Editar profissional' : 'Adicionar ao diretório'}</h2><p>As informações aparecerão publicamente depois de salvar.</p></div>
     </div>
     <div class="admin-form__grid">
       ${field('name', 'Nome completo', 'Ex.: Beatriz Sampaio', 'input-nome')}
@@ -600,7 +815,7 @@ function professionalForm() {
     </div>
     <div class="admin-form__actions">
       ${button('Cancelar', 'cancel-form', 'button-quiet')}
-      <button class="button-primary focus-ring" type="submit" ${state.adminLoading ? 'disabled' : ''} data-testid="button-salvar-profissional">${icon('plus', 17)} Salvar profissional</button>
+      <button class="button-primary focus-ring" type="submit" ${state.adminLoading ? 'disabled' : ''} data-testid="button-salvar-profissional">${icon(state.form.id ? 'check' : 'plus', 17)} ${state.form.id ? 'Salvar alterações' : 'Salvar profissional'}</button>
     </div>
   </form>`;
 }
@@ -621,6 +836,7 @@ function adminDirectoryList() {
   </section>`;
 }
 
+
 function adminRow(professional) {
   return `<div class="admin-row" data-testid="row-profissional-${escapeHtml(professional.id)}">
     <div class="admin-row__identity">
@@ -631,52 +847,78 @@ function adminRow(professional) {
         <div class="admin-row__specialties">${professional.specialties.map((specialty) => `<span class="specialty-tag">${escapeHtml(specialty)}</span>`).join('')}</div>
       </div>
     </div>
-    <button class="delete-button focus-ring" type="button" data-delete-id="${escapeHtml(professional.id)}" data-testid="button-excluir-${escapeHtml(professional.id)}">${icon('trash', 15)} Excluir</button>
-  </div>`;
+      <div class="admin-row__actions">
+        <button class="row-button focus-ring" type="button" data-edit-id="${escapeHtml(professional.id)}" data-testid="button-editar-${escapeHtml(professional.id)}">${icon('pencil', 15)} Editar</button>
+        <button class="delete-button focus-ring" type="button" data-delete-id="${escapeHtml(professional.id)}" data-testid="button-excluir-${escapeHtml(professional.id)}">${icon('trash', 15)} Excluir</button>
+        </div>
+    </div>`;
 }
 
 function bindAdminDashboardEvents() {
   document.querySelector('[data-action="toggle-form"]')?.addEventListener('click', () => {
     state.formOpen = !state.formOpen;
+    state.form = { ...DEFAULT_FORM };
     state.notice = '';
     state.adminError = '';
     renderAdminContent();
   });
+
   document.querySelector('[data-action="cancel-form"]')?.addEventListener('click', () => {
     state.formOpen = false;
     state.form = { ...DEFAULT_FORM };
     renderAdminContent();
   });
+
   document.querySelector('#professional-form')?.addEventListener('submit', submitProfessional);
   document.querySelectorAll('[data-field]').forEach((field) => {
     field.addEventListener('input', () => {
       state.form[field.dataset.field] = field.value;
     });
   });
+
   document.querySelectorAll('[data-delete-id]').forEach((button) => {
     button.addEventListener('click', () => removeProfessional(button.dataset.deleteId));
+  });
+
+   document.querySelectorAll('[data-edit-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+    const professional = state.adminProfessionals.find((professionalParams) => professionalParams.id === button.dataset.editId);
+    if (!professional) return;
+    state.form = { ...professional, specialties: professional.specialties.join(', ') };
+    state.formOpen = true;
+    state.notice = '';
+    state.adminError = '';
+    renderAdminContent();
+    document.querySelector('#professional-form')?.scrollIntoView({ block: 'start' });
+    });
   });
 }
 
 async function loadAdminDirectory() {
-  if (!state.user?.token?.access_token) return;
+  if (!state.user) return;
   state.adminLoading = true;
   renderAdminListOnly();
   try {
-    state.adminProfessionals = await apiRequest('/api/professionals?scope=admin', {
-      token: state.user.token.access_token,
-    });
-    state.adminDenied = false;
+    state.adminProfessionals = await apiRequest('/api/admin/professionals');
     state.adminError = '';
     state.adminLoaded = true;
   } catch (error) {
-    state.adminDenied = error.message?.toLowerCase().includes('permissão') || error.message?.toLowerCase().includes('administrador');
-    state.adminError = state.adminDenied ? '' : (error.message || 'Não foi possível carregar o diretório.');
+    if (!handleExpiredSession(error)) state.adminError = error.message || 'Não foi possível carregar o diretório.';
     state.adminLoaded = true;
   } finally {
     state.adminLoading = false;
     renderAdminContent();
   }
+}
+
+function handleExpiredSession(error) {
+  if (error.status !== 401) return false;
+  state.user = null;
+  state.adminProfessionals = [];
+  state.adminLoaded = false;
+  state.loginError = 'Sua sessão expirou. Entre novamente.';
+  adminPage();
+  return true;
 }
 
 function renderAdminListOnly() {
@@ -713,17 +955,26 @@ async function submitProfessional(event) {
   state.adminLoading = true;
   state.adminError = '';
   try {
-    const created = await apiRequest('/api/professionals', {
-      method: 'POST',
-      token: state.user?.token?.access_token,
-      body: input,
-    });
-    state.adminProfessionals.push(created);
+    const { id } = state.form;
+    if (id) {
+      const updated = await apiRequest(`/api/admin/professionals/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: input,
+      });
+      state.adminProfessionals = state.adminProfessionals.map((item) => (item.id === id ? updated : item));
+      state.notice = `${updated.name} foi atualizado no diretório.`;
+    } else {
+      const created = await apiRequest('/api/admin/professionals', {
+        method: 'POST',
+        body: input,
+      });
+      state.adminProfessionals.push(created);
+      state.notice = `${created.name} foi publicado no diretório.`;
+    }
     state.form = { ...DEFAULT_FORM };
     state.formOpen = false;
-    state.notice = `${created.name} foi publicado no diretório.`;
   } catch (error) {
-    state.adminError = error.message || 'Não foi possível publicar o profissional.';
+    if (!handleExpiredSession(error)) state.adminError = error.message || 'Não foi possível salvar o profissional.';
   } finally {
     state.adminLoading = false;
     renderAdminContent();
@@ -737,29 +988,37 @@ async function removeProfessional(id) {
   state.adminError = '';
   state.notice = '';
   try {
-    await apiRequest(`/api/professionals/${encodeURIComponent(id)}`, {
+    await apiRequest(`/api/admin/professionals/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      token: state.user?.token?.access_token,
     });
     state.adminProfessionals = state.adminProfessionals.filter((item) => item.id !== id);
+    if (state.form.id === id) {
+      state.form = { ...DEFAULT_FORM };
+      state.formOpen = false;
+    }
     state.notice = `${professional.name} foi removido do diretório.`;
   } catch (error) {
-    state.adminError = error.message || 'Não foi possível remover o profissional.';
+    if (!handleExpiredSession(error)) state.adminError = error.message || 'Não foi possível remover o profissional.';
   }
   renderAdminContent();
 }
 
+
+
+
+// O login é feito pelo Cloudflare Access: recarregar /admin leva à tela dele.
 function login() {
-  window.netlifyIdentity?.open('login');
+  window.location.assign('/admin');
 }
 
 function logout() {
-  window.netlifyIdentity?.logout();
+  window.location.assign('/cdn-cgi/access/logout');
 }
 
 function start() {
   if (window.location.pathname === '/admin') {
     adminPage();
+    initializeSession();
   } else {
     homePage();
   }

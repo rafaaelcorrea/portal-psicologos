@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "ClaraMente — Portal de Psicólogos"
+title = "Connect & Harmony — Portal de Psicólogos"
 description = "Portal mobile-first que conecta pessoas a psicólogos por especialidade, com contato direto via WhatsApp e gestão segura de profissionais."
 version = "1.0.0"
 id = "artifacts/portal-psicologos"

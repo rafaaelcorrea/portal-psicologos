@@ -52,5 +52,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`ClaraMente static server running on http://localhost:${port}`);
+  console.log(`Connect & Harmony static server running on http://localhost:${port}`);
 });
