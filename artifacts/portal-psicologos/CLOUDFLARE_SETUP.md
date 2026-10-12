@@ -16,7 +16,9 @@ Os nomes dos menus do painel do Cloudflare mudam com frequência; se algum não 
 
    O diretório raiz precisa ser `artifacts/portal-psicologos`, porque é nele que o Cloudflare procura a pasta `functions/`.
 
-3. Em **Settings > Variables and Secrets**, crie `SKIP_DEPENDENCY_INSTALL` = `1`. Este passo é obrigatório: o site não tem dependências, e sem a variável o Cloudflare tenta instalar as do workspace com uma versão do pnpm diferente da que gerou o `pnpm-lock.yaml`, e o build falha com `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+3. Opcional: em **Settings > Variables and Secrets**, crie `SKIP_DEPENDENCY_INSTALL` = `1`. O site não tem dependências, então o build fica mais rápido sem a instalação.
+
+O projeto precisa ser do tipo **Pages**, não **Worker**. Ao importar um repositório, o painel pode criar um Worker por padrão; nesse caso a pasta `functions/` é ignorada e a API não existe. Para conferir, abra as configurações de build: um projeto Pages tem o campo **Build output directory**; um Worker tem **Deploy command**.
 
 Anote o endereço do site (por exemplo, `meu-portal.pages.dev`).
 
