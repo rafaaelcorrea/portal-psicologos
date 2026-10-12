@@ -16,7 +16,7 @@ Os nomes dos menus do painel do Cloudflare mudam com frequência; se algum não 
 
    O diretório raiz precisa ser `artifacts/portal-psicologos`, porque é nele que o Cloudflare procura a pasta `functions/`.
 
-3. Opcional: em **Settings > Variables and Secrets**, crie `SKIP_DEPENDENCY_INSTALL` = `1`. O site não tem dependências, então o build fica mais rápido sem a instalação.
+3. Em **Settings > Variables and Secrets**, crie `SKIP_DEPENDENCY_INSTALL` = `1`. Este passo é obrigatório: o site não tem dependências, e sem a variável o Cloudflare tenta instalar as do workspace com uma versão do pnpm diferente da que gerou o `pnpm-lock.yaml`, e o build falha com `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
 
 Anote o endereço do site (por exemplo, `meu-portal.pages.dev`).
 
